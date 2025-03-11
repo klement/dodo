@@ -411,12 +411,9 @@ class SendmailThread(QThread):
                 else:
                     ty = ['application', 'octet-stream']
 
-                try:
-                    with open(os.path.expanduser(att), 'rb') as f1:
-                        data = f1.read()
-                        eml.add_attachment(data, maintype=ty[0], subtype=ty[1], filename=os.path.basename(att))
-                except IOError:
-                    print("Can't read attachment: " + att)
+                with open(os.path.expanduser(att), 'rb') as f1:
+                    data = f1.read()
+                    eml.add_attachment(data, maintype=ty[0], subtype=ty[1], filename=os.path.basename(att))
 
             if self.panel.pgp_sign:
                 eml = pgp_util.sign(eml)
