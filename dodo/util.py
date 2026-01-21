@@ -23,6 +23,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeyEvent
 import re
 import os
+import sys
 import os.path
 import tempfile
 import subprocess
@@ -265,6 +266,58 @@ def quote_body_text(m: dict) -> str:
     prefix = f'On {date.strftime("%c")}, {name if name else addr} wrote:\n'
     return ''.join([prefix] + [f'> {ln}\n' for ln in text.splitlines()])
 
+
+def sanitize_filename(name: str) -> str:
+    """Replace invalid filename characters.
+
+    Note: This should be used for the basename, as it also removes the path
+    separator.
+    """
+    # Remove chars which can't be encoded in the filename encoding.
+    encoding = sys.getfilesystemencoding()
+    name = name.encode(encoding, errors="replace").decode(encoding)
+
+    # See also
+    # https://en.wikipedia.org/wiki/Filename#Reserved_characters_and_words
+    if sys.platform.startswith("win"):
+        bad_chars = '\\/:*?"<>|'
+    elif sys.platform.startswith("darwin"):
+        # Colons can be confusing in finder https://superuser.com/a/326627
+        bad_chars = '/:'
+    else:
+        bad_chars = '/'
+
+    for bad_char in bad_chars:
+        name = name.replace(bad_char, "_")
+
+    # Truncate the filename if it's too long.
+    # Most filesystems have a maximum filename length of 255 bytes:
+    # https://en.wikipedia.org/wiki/Comparison_of_file_systems#Limits
+    max_bytes = 255
+    root, ext = os.path.splitext(name)
+    root = root[:max_bytes - len(ext)]
+    excess = len(os.fsencode(root + ext)) - max_bytes
+
+    while excess > 0 and root:
+        # Max 4 bytes per character is assumed.
+        # Integer division floors to -∞, not to 0.
+        root = root[:(-excess // 4)]
+        excess = len(os.fsencode(root + ext)) - max_bytes
+
+    if not root:
+        # Trimming the root is not enough. We must trim the extension.
+        # We leave one character in the root, so that the filename
+        # doesn't start with a dot, which makes the file hidden.
+        root = name[0]
+        excess = len(os.fsencode(root + ext)) - max_bytes
+        while excess > 0 and ext:
+            ext = ext[:(-excess // 4)]
+            excess = len(os.fsencode(root + ext)) - max_bytes
+        assert ext, name
+
+    return root + ext
+
+
 def write_attachments(m: dict) -> Tuple[str, List[str]]:
     """Write attachments out into temp directory and open with `settings.file_browser_command`
 
@@ -292,7 +345,7 @@ def write_attachments(m: dict) -> Tuple[str, List[str]]:
                 print(f"Ignoring attachment {filename}: Got empty contents from notmuch")
                 continue
 
-            p = os.path.join(temp_dir, filename)
+            p = os.path.join(temp_dir, sanitize_filename(filename))
             with open(p, 'wb') as att:
                 att.write(proc.stdout)
             file_paths.append(p)
