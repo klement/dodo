@@ -60,7 +60,7 @@ class SearchModel(QAbstractItemModel):
             self.error_msg = None
         except subprocess.CalledProcessError as e:
             # We keep the previous data, just add an error message on top.
-            self.error_msg = e.stderr.decode()
+            self.error_msg = f"notmuch: {e.stderr}"
         self.threads = {thread['thread']: i for i,thread in enumerate(self.d)}
         self.num_threads = len(self.d)
         self.endResetModel()
@@ -89,7 +89,7 @@ class SearchModel(QAbstractItemModel):
             self.threads = {thread['thread']: i for i,thread in enumerate(self.d)}
             self.num_threads = len(self.d)
         except subprocess.CalledProcessError as e:
-            self.error_msg = e.stderr.decode()
+            self.error_msg = f"notmuch: {e.stderr}"
         self.endResetModel()
         logger.info("Model refreshed for '%s'", self.q)
 
