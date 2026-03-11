@@ -307,6 +307,10 @@ class ThreadModel(QAbstractItemModel):
         return set(json.loads(r.stdout))
 
     def get_last_msg_idx(self, parent: QModelIndex=QModelIndex()) -> QModelIndex:
+        if not parent.isValid():
+            if self.rowCount() == 0:
+                return QModelIndex()
+            return self.get_last_msg_idx(self.index(self.rowCount()-1, 0))
         children = parent.internalPointer().children
         if children:
             return self.get_last_msg_idx(self.index(len(children)-1, 0, parent))
@@ -421,11 +425,22 @@ class ThreadModel(QAbstractItemModel):
 
     def default_message(self) -> QModelIndex:
         """Return the index of either the oldest matching message or the last message
-        in the thread."""
-        for idx in self.iterate_indices():
-            if self.message_at(idx)['id'] in self.matches:
-                return idx
-        return self.get_last_msg_idx()
+        in the thread.
+
+        If :func:`~dodo.settings.thread_select_unread` is True, prefer the oldest
+        unread matching message, falling back to the last message if all are read.
+        """
+        if settings.thread_select_unread:
+            for idx in self.iterate_indices():
+                msg = self.message_at(idx)
+                if msg['id'] in self.matches and 'unread' in msg['tags']:
+                    return idx
+            return self.get_last_msg_idx()
+        else:
+            for idx in self.iterate_indices():
+                if self.message_at(idx)['id'] in self.matches:
+                    return idx
+            return self.get_last_msg_idx()
 
     def default_collapsed(self) -> set[str]:
         irrelevant_branches = set()

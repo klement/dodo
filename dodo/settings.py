@@ -151,6 +151,14 @@ Possible values are:
     * 'thread': tree view, following the various subthreads
 """
 
+thread_select_unread = False
+"""When opening a thread, select the oldest unread matching message
+
+If True, the oldest unread matching message is selected when opening a thread.
+If all messages are read, the most recent message is selected instead.
+If False (the default), the oldest matching message is selected.
+"""
+
 gnupg_home = None
 """Directory containg GnuPG keys
 
