@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import *
 from PyQt6.QtWebEngineCore import QWebEngineUrlScheme
 import sys
 import os
+import signal
 import subprocess
 from typing import Optional, Literal
 import logging
@@ -48,11 +49,44 @@ class SyncMailThread(QThread):
 
     def __init__(self, parent: QObject=None) -> None:
         super().__init__(parent)
+        self._proc: subprocess.Popen | None = None
+        self._stopping = False
 
     def run(self) -> None:
         """Run :func:`~dodo.settings.sync_mail_command` then `notmuch new`"""
-        subprocess.run(settings.sync_mail_command, stdout=subprocess.PIPE, shell=True)
-        subprocess.run(['notmuch', 'new'], stdout=subprocess.PIPE)
+        self._proc = subprocess.Popen(settings.sync_mail_command, stdout=subprocess.PIPE,
+                                      shell=True, start_new_session=True)
+        self._proc.wait()
+        self._proc = None
+        if self._stopping:
+            return
+        self._proc = subprocess.Popen(['notmuch', 'new'], stdout=subprocess.PIPE,
+                                      start_new_session=True)
+        self._proc.wait()
+        self._proc = None
+
+    def _kill_proc(self) -> None:
+        """Kill the running subprocess and its entire process group"""
+        proc = self._proc
+        if proc is None:
+            return
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except OSError:
+            pass
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+    def stop(self) -> None:
+        """Terminate the running subprocess and wait for the thread to finish"""
+        self._stopping = True
+        self._kill_proc()
+        self.wait()
 
 
 class Dodo(QApplication):
@@ -99,11 +133,15 @@ class Dodo(QApplication):
         self.lastWindowClosed.connect(self.quit)
 
         # set timer to sync email periodically
+        self.sync_thread: SyncMailThread | None = None
+        self.sync_timer: QTimer | None = None
         if settings.sync_mail_interval != -1:
             self.sync_mail()
-            timer = QTimer(self)
-            timer.timeout.connect(self.sync_mail)
-            timer.start(settings.sync_mail_interval * 1000)
+            self.sync_timer = QTimer(self)
+            self.sync_timer.timeout.connect(self.sync_mail)
+            self.sync_timer.start(settings.sync_mail_interval * 1000)
+
+        self.aboutToQuit.connect(self._cleanup_sync)
 
         # open init_queries and make un-closeable
         #
@@ -259,7 +297,11 @@ class Dodo(QApplication):
                       This is less distracting if this is a periodic sync, rather than a
                       manual sync by the user."""
 
+        if self.sync_thread is not None and self.sync_thread.isRunning():
+            return
+
         t = SyncMailThread(parent=self)
+        self.sync_thread = t
 
         def done() -> None:
             self.refresh_panels()
@@ -268,6 +310,7 @@ class Dodo(QApplication):
                 title = self.main_window.windowTitle()
                 self.main_window.setWindowTitle(title.replace(' [syncing]', ''))
                 self.main_window.update()
+            self.sync_thread = None
             t.deleteLater()
 
         if not quiet:
@@ -311,6 +354,13 @@ class Dodo(QApplication):
                 w.update_thread(thread_id, msg_id=msg_id)
                 if w == current and w.dirty:
                     w.refresh()
+
+    def _cleanup_sync(self) -> None:
+        """Stop the sync timer and terminate any running sync thread"""
+        if self.sync_timer is not None:
+            self.sync_timer.stop()
+        if self.sync_thread is not None and self.sync_thread.isRunning():
+            self.sync_thread.stop()
 
     def prompt_quit(self) -> None:
         """A 'soft' quit function, which gives each open tab the opportunity to prompt
