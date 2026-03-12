@@ -61,7 +61,7 @@ def raise_for_status(result: GpgResult) -> None:
     raise GpgError(message)
 
 
-def sign(msg: email.message.EmailMessage) -> email.message.EmailMessage:
+def sign(msg: email.message.EmailMessage, keyid: str) -> email.message.EmailMessage:
     ensure_gpg()
     assert Gpg is not None  # for mypy
 
@@ -89,7 +89,7 @@ def sign(msg: email.message.EmailMessage) -> email.message.EmailMessage:
     # Attach the message to be signed
     signed_mail.attach(msg_to_sign)
     # Create the signature
-    sig = Gpg.sign(msg_to_sign.as_string(), keyid=settings.gnupg_keyid, detach=True)
+    sig = Gpg.sign(msg_to_sign.as_string(), keyid=keyid, detach=True)
     raise_for_status(sig)
     # Attach the ASCII representation (as per rfc) of the signature, note that
     # set_content with contaent-type other then text requires a bytes object
