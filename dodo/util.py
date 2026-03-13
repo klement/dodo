@@ -92,6 +92,29 @@ def linkify(s: str) -> str:
     return lnk_email.linkify(lnk.linkify(s))
 
 
+def notmuch_reply_headers(msg_id: str, reply_to: str = 'all') -> dict:
+    """Get reply headers from notmuch reply
+
+    Calls ``notmuch reply --format=json`` and returns the ``reply-headers``
+    dictionary, which contains From, To, Cc, Subject, In-reply-to, and
+    References headers with proper RFC-compliant values.
+
+    :param msg_id: the notmuch message ID (without angle brackets)
+    :param reply_to: 'all' for reply-all or 'sender' for reply-to-sender
+    :returns: a dictionary of reply headers, or empty dict on failure
+    """
+    import json
+    try:
+        r = subprocess.run(
+            ['notmuch', 'reply', f'--reply-to={reply_to}', '--format=json', '--decrypt=true', f'id:{msg_id}'],
+            stdout=subprocess.PIPE, encoding='utf8', check=True)
+        data = json.loads(r.stdout)
+        return data.get('reply-headers', {})
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        print(f"notmuch reply failed: {e}")
+        return {}
+
+
 def get_header_addresses(
     headers: Dict[str, str], header_keys: List[str]
 ) -> List[Tuple[str, str]]:
