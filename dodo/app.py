@@ -71,16 +71,9 @@ class SyncMailThread(QThread):
         if proc is None:
             return
         try:
-            os.killpg(proc.pid, signal.SIGTERM)
+            os.killpg(proc.pid, signal.SIGKILL)
         except OSError:
             pass
-        try:
-            proc.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except OSError:
-                pass
 
     def stop(self) -> None:
         """Terminate the running subprocess and wait for the thread to finish"""
@@ -142,6 +135,18 @@ class Dodo(QApplication):
             self.sync_timer.start(settings.sync_mail_interval * 1000)
 
         self.aboutToQuit.connect(self._cleanup_sync)
+
+        # Handle Ctrl-C: kill sync processes and quit. Cleanup is done
+        # directly in the handler since aboutToQuit may not fire reliably.
+        # The periodic timer forces CPython to leave Qt's C event loop and
+        # check for pending signals.
+        def sigint_handler(*_):
+            self._cleanup_sync()
+            self.quit()
+        signal.signal(signal.SIGINT, sigint_handler)
+        self._sigint_timer = QTimer(self)
+        self._sigint_timer.timeout.connect(lambda: None)
+        self._sigint_timer.start(200)
 
         # open init_queries and make un-closeable
         #
