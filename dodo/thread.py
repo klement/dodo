@@ -669,7 +669,7 @@ class ThreadPanel(panel.Panel):
         if 'headers' in m:
             header_html = ''
             header_html += f'<table style="background-color: {settings.theme["bg"]}; color: {settings.theme["fg"]}; font-family: {settings.search_font}; font-size: {settings.search_font_size}pt; width:100%">'
-            for name in ['Subject', 'Date', 'From', 'To', 'Cc']:
+            for name in ['Subject', 'Date', 'From', 'To', 'Cc', 'Reply-To']:
                 if name in m['headers']:
                     header_html += f"""<tr>
                       <td><b style="color: {settings.theme["fg_bright"]}">{name}:&nbsp;</b></td>
