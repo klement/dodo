@@ -228,6 +228,13 @@ class SearchPanel(panel.Panel):
         self.tree = QTreeView()
         self.error_view = QLabel()
         self.tree.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if settings.header_font or settings.header_font_size:
+            f = self.tree.header().font()
+            if settings.header_font:
+                f.setFamily(settings.header_font)
+            if settings.header_font_size:
+                f.setPointSize(settings.header_font_size)
+            self.tree.header().setFont(f)
         self.setStyleSheet(f'QTreeView::item {{ padding: {settings.search_view_padding}px }}')
         self.model = SearchModel(q)
         self.tree.setModel(self.model)

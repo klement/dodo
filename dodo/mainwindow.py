@@ -26,6 +26,7 @@ import os
 from . import app
 from . import commandbar
 from . import panel
+from . import settings
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,13 @@ class MainWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         self.tabs.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if settings.tab_font or settings.tab_font_size:
+            f = self.tabs.tabBar().font()
+            if settings.tab_font:
+                f.setFamily(settings.tab_font)
+            if settings.tab_font_size:
+                f.setPointSize(settings.tab_font_size)
+            self.tabs.tabBar().setFont(f)
         # self.tabs.resize(1600, 800)
         w.layout().addWidget(self.tabs)
 
