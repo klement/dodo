@@ -70,7 +70,6 @@ class ComposePanel(panel.Panel):
         self.layout().addWidget(self.message_view)
         self.status = f'<i style="color:{settings.theme["fg"]}">draft</i>'
         self.current_account = 0
-        self.pgp_sign = settings.gnupg_keyid is not None
         self.pgp_encrypt = False
         self.wrap_message = settings.wrap_message
 
@@ -97,6 +96,7 @@ class ComposePanel(panel.Panel):
         else:
             self.current_account = 0
 
+        self.pgp_sign = self.gnupg_keyid() is not None
         self.raw_message_string = f'From: {self.email_address()}\n'
 
         if msg and mode == 'mailto':
@@ -260,13 +260,20 @@ class ComposePanel(panel.Panel):
 
     def toggle_pgp_sign(self) -> None:
         # Silently ignore when gnupg_keyid is not set
-        if not settings.gnupg_keyid: return
+        if not self.gnupg_keyid(): return
         self.pgp_sign = True if self.pgp_sign is False else False
         self.refresh()
 
     def toggle_pgp_encrypt(self) -> None:
         self.pgp_encrypt = True if self.pgp_encrypt is False else False
         self.refresh()
+
+    def gnupg_keyid(self) -> str | None:
+        """Get the GPG key id to use based on the current SMTP account."""
+        if isinstance(settings.gnupg_keyid, dict):
+            return settings.gnupg_keyid.get(self.account_name())
+        else:
+            return settings.gnupg_keyid
 
     def account_name(self) -> str:
         """Return the name of the current SMTP account"""
@@ -290,6 +297,7 @@ class ComposePanel(panel.Panel):
         if self.email_address() != old_email:
             self.raw_message_string = util.replace_header(self.raw_message_string, 'From', self.email_address())
 
+        self.pgp_sign = self.gnupg_keyid() is not None
         self.refresh()
 
     def previous_account(self) -> None:
@@ -301,6 +309,7 @@ class ComposePanel(panel.Panel):
         if self.email_address() != old_email:
             self.raw_message_string = util.replace_header(self.raw_message_string, 'From', self.email_address())
 
+        self.pgp_sign = self.gnupg_keyid() is not None
         self.refresh()
 
     def send(self) -> None:
@@ -419,7 +428,7 @@ class SendmailThread(QThread):
                     print("Can't read attachment: " + att)
 
             if self.panel.pgp_sign:
-                eml = pgp_util.sign(eml)
+                eml = pgp_util.sign(eml, self.panel.gnupg_keyid())
 
             if self.panel.pgp_encrypt:
                 eml = pgp_util.encrypt(eml)

@@ -132,7 +132,7 @@ del dodo.keymap.global_keymap['Q']
 
 ### Multiple accounts
 
-If you are using something like [msmtp](https://marlam.de/msmtp/) to send emails, it is possible to send mail from multiple accounts. To set this up, simply set a list of account names your SMTP client recognises in `config.py`. You can also provide per-account email addresses and sent directories by passing dictionaries to `email_address` and `sent_dir` settings, respectively.
+If you are using something like [msmtp](https://marlam.de/msmtp/) to send emails, it is possible to send mail from multiple accounts. To set this up, simply set a list of account names your SMTP client recognises in `config.py`. You can also provide per-account email addresses and sent directories by passing dictionaries to `email_address` and `sent_dir` settings, respectively. The `gnupg_keyid` setting can also be set to a dictionary mapping account names to GPG key IDs. If an account name is missing, signing is automatically disabled when switching to the account in question.
 
 ```python
 import dodo
